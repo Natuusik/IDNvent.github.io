@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<title>Сканирование batch-кода</title>
+<title>Универсальный сканер кодов</title>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 
 <style>
@@ -28,35 +28,42 @@
 </head>
 <body>
 
-<h2>Сравнение двух batch-кодов</h2>
+<h2>Универсальный сканер кодов</h2>
 
 <div class="video-container">
     <video id="preview" autoplay playsinline></video>
     <div id="frame"></div>
 </div>
 
-<button onclick="captureTube()">📸 Сфотографировать код с тюбика</button>
+<button onclick="scanTube()">📸 Сканировать код с тюбика</button>
 <p>Код с тюбика: <span id="tube">—</span></p>
 
-<button onclick="capturePaper()">📸 Сфотографировать код с бумаги</button>
+<button onclick="scanPaper()">📸 Сканировать код с бумаги</button>
 <p>Код с бумаги: <span id="paper">—</span></p>
 
 <h3>Результат: <span id="result">—</span></h3>
 
 <script>
+
+/* ============================================================
+   ===============  CAMERA MODULE (FULL HD)  ===================
+   ============================================================ */
+
 let stream;
 
-// Запуск камеры
 async function startCamera() {
     stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" }
+        video: {
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+            facingMode: "environment"
+        }
     });
     document.getElementById("preview").srcObject = stream;
 }
 
 startCamera();
 
-// Автофокус (работает на большинстве телефонов)
 async function autoFocus() {
     const track = stream.getVideoTracks()[0];
     if (track && track.applyConstraints) {
@@ -66,7 +73,10 @@ async function autoFocus() {
     }
 }
 
-// Обрезка по рамке
+/* ============================================================
+   ==================  CROP MODULE  ============================
+   ============================================================ */
+
 async function cropFrame() {
     const video = document.getElementById("preview");
     const frame = document.getElementById("frame");
@@ -92,58 +102,127 @@ async function cropFrame() {
     return canvas;
 }
 
-// Улучшение изображения
-function enhance(canvas) {
-    const ctx = canvas.getContext("2d");
-    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const data = imgData.data;
+/* ============================================================
+   ===============  AUTO-ANALYSIS MODULE  ======================
+   ============================================================ */
 
-    // Чёрно-белый + контраст + резкость
+function analyzeImage(canvas) {
+    const ctx = canvas.getContext("2d");
+    const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const data = img.data;
+
+    let brightness = 0;
+    let contrast = 0;
+
+    for (let i = 0; i < data.length; i += 4) {
+        const v = (data[i] + data[i+1] + data[i+2]) / 3;
+        brightness += v;
+    }
+
+    brightness /= (data.length / 4);
+
+    // Контраст — разница между соседними пикселями
+    for (let i = 0; i < data.length - 4; i += 4) {
+        const v1 = (data[i] + data[i+1] + data[i+2]) / 3;
+        const v2 = (data[i+4] + data[i+5] + data[i+6]) / 3;
+        contrast += Math.abs(v1 - v2);
+    }
+
+    contrast /= (data.length / 4);
+
+    return { brightness, contrast };
+}
+
+/* ============================================================
+   ==================  FILTERS MODULE  =========================
+   ============================================================ */
+
+function applyReliefFilter(canvas) {
+    const ctx = canvas.getContext("2d");
+    const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const data = img.data;
+
     for (let i = 0; i < data.length; i += 4) {
         let v = (data[i] + data[i+1] + data[i+2]) / 3;
-
-        // Контраст
-        v = v > 128 ? 255 : 0;
-
+        v = v < 128 ? 0 : 255;
         data[i] = data[i+1] = data[i+2] = v;
     }
 
-    ctx.putImageData(imgData, 0, 0);
+    ctx.putImageData(img, 0, 0);
     return canvas;
 }
 
-// OCR
+function applyContrastFilter(canvas) {
+    const ctx = canvas.getContext("2d");
+    const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const data = img.data;
+
+    for (let i = 0; i < data.length; i += 4) {
+        let v = (data[i] + data[i+1] + data[i+2]) / 3;
+        v = v > 140 ? 255 : 0;
+        data[i] = data[i+1] = data[i+2] = v;
+    }
+
+    ctx.putImageData(img, 0, 0);
+    return canvas;
+}
+
+function applySoftFilter(canvas) {
+    const ctx = canvas.getContext("2d");
+    ctx.filter = "contrast(130%) brightness(110%)";
+    ctx.drawImage(canvas, 0, 0);
+    return canvas;
+}
+
+/* ============================================================
+   ===============  FILTER SELECTION MODULE  ===================
+   ============================================================ */
+
+function autoFilter(canvas) {
+    const { brightness, contrast } = analyzeImage(canvas);
+
+    if (contrast < 15) return applyReliefFilter(canvas);   // выпуклый/вдавленный
+    if (contrast > 40) return applyContrastFilter(canvas); // печатный
+    return applySoftFilter(canvas);                        // рукописный
+}
+
+/* ============================================================
+   ====================  OCR MODULE  ===========================
+   ============================================================ */
+
 async function recognize(canvas) {
     const { data: { text } } = await Tesseract.recognize(canvas, "eng", {
-        tessedit_char_whitelist: "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+        tessedit_char_whitelist:
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@×*&%!?()[]{}+-=/#_АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЫЭЮЯабвгдеёжзийклмнопрстуфхцчшщыэюя"
     });
 
     return text.replace(/\s+/g, "").trim();
 }
 
-// Сканирование тюбика
-async function captureTube() {
+/* ============================================================
+   ==================  MAIN LOGIC MODULE  ======================
+   ============================================================ */
+
+async function scanTube() {
     document.getElementById("tube").textContent = "распознаю...";
     await autoFocus();
-    const cropped = await cropFrame();
-    const enhanced = enhance(cropped);
-    const code = await recognize(enhanced);
+    let canvas = await cropFrame();
+    canvas = autoFilter(canvas);
+    const code = await recognize(canvas);
     document.getElementById("tube").textContent = code || "не найдено";
     compare();
 }
 
-// Сканирование бумаги
-async function capturePaper() {
+async function scanPaper() {
     document.getElementById("paper").textContent = "распознаю...";
     await autoFocus();
-    const cropped = await cropFrame();
-    const enhanced = enhance(cropped);
-    const code = await recognize(enhanced);
+    let canvas = await cropFrame();
+    canvas = autoFilter(canvas);
+    const code = await recognize(canvas);
     document.getElementById("paper").textContent = code || "не найдено";
     compare();
 }
 
-// Сравнение
 function compare() {
     const tube = document.getElementById("tube").textContent;
     const paper = document.getElementById("paper").textContent;
@@ -158,6 +237,7 @@ function compare() {
         result.style.color = "red";
     }
 }
+
 </script>
 
 </body>
