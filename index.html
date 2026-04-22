@@ -8,19 +8,44 @@
     body { font-family: Arial; padding: 20px; }
     button { padding: 15px; font-size: 18px; margin: 10px 0; width: 100%; }
     #result { font-size: 24px; margin-top: 20px; font-weight: bold; }
-    video { width: 100%; border: 2px solid #444; margin-top: 10px; }
+
+    video {
+        width: 100%;
+        border: 2px solid #444;
+        margin-top: 10px;
+        position: relative;
+    }
+
+    /* Узкая горизонтальная рамка */
+    #frame {
+        position: absolute;
+        top: 45%;
+        left: 10%;
+        width: 80%;
+        height: 12%;
+        border: 3px solid red;
+        box-sizing: border-box;
+        pointer-events: none;
+    }
+
+    .video-container {
+        position: relative;
+        width: 100%;
+    }
 </style>
 </head>
 <body>
 
 <h2>Сравнение двух batch-кодов</h2>
 
-<h3>1. Наведи камеру на код на тюбике</h3>
-<video id="preview" autoplay playsinline></video>
+<div class="video-container">
+    <video id="preview" autoplay playsinline></video>
+    <div id="frame"></div>
+</div>
+
 <button onclick="captureTube()">📸 Сфотографировать код с тюбика</button>
 <p>Код с тюбика: <span id="tube">—</span></p>
 
-<h3>2. Наведи камеру на код на бумаге</h3>
 <button onclick="capturePaper()">📸 Сфотографировать код с бумаги</button>
 <p>Код с бумаги: <span id="paper">—</span></p>
 
@@ -29,7 +54,7 @@
 <script>
 let stream;
 
-// Запуск камеры с превью
+// Запуск камеры
 async function startCamera() {
     stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: "environment" }
@@ -39,21 +64,34 @@ async function startCamera() {
 
 startCamera();
 
-// Функция фото
-async function takePhoto() {
-    const track = stream.getVideoTracks()[0];
-    const imageCapture = new ImageCapture(track);
-    return await imageCapture.grabFrame();
+// Фото только области рамки
+async function takeCroppedPhoto() {
+    const video = document.getElementById("preview");
+
+    const frame = document.getElementById("frame");
+    const rect = frame.getBoundingClientRect();
+    const videoRect = video.getBoundingClientRect();
+
+    const scaleX = video.videoWidth / videoRect.width;
+    const scaleY = video.videoHeight / videoRect.height;
+
+    const cropX = (rect.left - videoRect.left) * scaleX;
+    const cropY = (rect.top - videoRect.top) * scaleY;
+    const cropW = rect.width * scaleX;
+    const cropH = rect.height * scaleY;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = cropW;
+    canvas.height = cropH;
+    const ctx = canvas.getContext("2d");
+
+    ctx.drawImage(video, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
+
+    return canvas;
 }
 
 // OCR
-async function recognize(bitmap) {
-    const canvas = document.createElement("canvas");
-    canvas.width = bitmap.width;
-    canvas.height = bitmap.height;
-    const ctx = canvas.getContext("2d");
-    ctx.drawImage(bitmap, 0, 0);
-
+async function recognize(canvas) {
     const { data: { text } } = await Tesseract.recognize(canvas, "eng", {
         tessedit_char_whitelist: "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
     });
@@ -64,8 +102,8 @@ async function recognize(bitmap) {
 // Сканирование тюбика
 async function captureTube() {
     document.getElementById("tube").textContent = "распознаю...";
-    const bitmap = await takePhoto();
-    const code = await recognize(bitmap);
+    const canvas = await takeCroppedPhoto();
+    const code = await recognize(canvas);
     document.getElementById("tube").textContent = code || "не найдено";
     compare();
 }
@@ -73,8 +111,8 @@ async function captureTube() {
 // Сканирование бумаги
 async function capturePaper() {
     document.getElementById("paper").textContent = "распознаю...";
-    const bitmap = await takePhoto();
-    const code = await recognize(bitmap);
+    const canvas = await takeCroppedPhoto();
+    const code = await recognize(canvas);
     document.getElementById("paper").textContent = code || "не найдено";
     compare();
 }
