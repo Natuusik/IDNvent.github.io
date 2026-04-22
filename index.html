@@ -153,13 +153,17 @@ function applyReliefFilter(canvas) {
 }
 
 function applyContrastFilter(canvas) {
+function applyContrastFilter(canvas) {
     const ctx = canvas.getContext("2d");
     const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const data = img.data;
 
     for (let i = 0; i < data.length; i += 4) {
         let v = (data[i] + data[i+1] + data[i+2]) / 3;
-        v = v > 140 ? 255 : 0;
+
+        // Усиленный контраст
+        v = v < 110 ? 0 : 255;
+
         data[i] = data[i+1] = data[i+2] = v;
     }
 
