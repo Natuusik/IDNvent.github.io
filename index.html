@@ -4,17 +4,14 @@
 <meta charset="UTF-8">
 <title>Сканирование batch-кода</title>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+
 <style>
     body { font-family: Arial; padding: 20px; }
     button { padding: 15px; font-size: 18px; margin: 10px 0; width: 100%; }
     #result { font-size: 24px; margin-top: 20px; font-weight: bold; }
 
-    video {
-        width: 100%;
-        border: 2px solid #444;
-        margin-top: 10px;
-        position: relative;
-    }
+    .video-container { position: relative; width: 100%; }
+    video { width: 100%; border: 2px solid #444; }
 
     /* Узкая горизонтальная рамка */
     #frame {
@@ -24,13 +21,8 @@
         width: 80%;
         height: 12%;
         border: 3px solid red;
-        box-sizing: border-box;
         pointer-events: none;
-    }
-
-    .video-container {
-        position: relative;
-        width: 100%;
+        box-sizing: border-box;
     }
 </style>
 </head>
@@ -64,11 +56,21 @@ async function startCamera() {
 
 startCamera();
 
-// Фото только области рамки
-async function takeCroppedPhoto() {
-    const video = document.getElementById("preview");
+// Автофокус (работает на большинстве телефонов)
+async function autoFocus() {
+    const track = stream.getVideoTracks()[0];
+    if (track && track.applyConstraints) {
+        try {
+            await track.applyConstraints({ advanced: [{ focusMode: "continuous" }] });
+        } catch (e) {}
+    }
+}
 
+// Обрезка по рамке
+async function cropFrame() {
+    const video = document.getElementById("preview");
     const frame = document.getElementById("frame");
+
     const rect = frame.getBoundingClientRect();
     const videoRect = video.getBoundingClientRect();
 
@@ -90,6 +92,26 @@ async function takeCroppedPhoto() {
     return canvas;
 }
 
+// Улучшение изображения
+function enhance(canvas) {
+    const ctx = canvas.getContext("2d");
+    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const data = imgData.data;
+
+    // Чёрно-белый + контраст + резкость
+    for (let i = 0; i < data.length; i += 4) {
+        let v = (data[i] + data[i+1] + data[i+2]) / 3;
+
+        // Контраст
+        v = v > 128 ? 255 : 0;
+
+        data[i] = data[i+1] = data[i+2] = v;
+    }
+
+    ctx.putImageData(imgData, 0, 0);
+    return canvas;
+}
+
 // OCR
 async function recognize(canvas) {
     const { data: { text } } = await Tesseract.recognize(canvas, "eng", {
@@ -102,8 +124,10 @@ async function recognize(canvas) {
 // Сканирование тюбика
 async function captureTube() {
     document.getElementById("tube").textContent = "распознаю...";
-    const canvas = await takeCroppedPhoto();
-    const code = await recognize(canvas);
+    await autoFocus();
+    const cropped = await cropFrame();
+    const enhanced = enhance(cropped);
+    const code = await recognize(enhanced);
     document.getElementById("tube").textContent = code || "не найдено";
     compare();
 }
@@ -111,8 +135,10 @@ async function captureTube() {
 // Сканирование бумаги
 async function capturePaper() {
     document.getElementById("paper").textContent = "распознаю...";
-    const canvas = await takeCroppedPhoto();
-    const code = await recognize(canvas);
+    await autoFocus();
+    const cropped = await cropFrame();
+    const enhanced = enhance(cropped);
+    const code = await recognize(enhanced);
     document.getElementById("paper").textContent = code || "не найдено";
     compare();
 }
