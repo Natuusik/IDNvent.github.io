@@ -1,173 +1,82 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
-    <meta charset="UTF-8">
-     <link rel="stylesheet" href="sources/style.css">
-    <title>IDNvent</title>
-     <base target="_blank">
-     <link rel="preconnect" href="https://fonts.googleapis.com">
-     <link rel="preconnect" href="https://fonts.googleapis.com">
-     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-     <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400..800;1,400..800&display=swap" rel="stylesheet">
-    </head>
+<meta charset="UTF-8">
+<title>Сканирование batch-кода</title>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<style>
+    body { font-family: Arial; padding: 20px; }
+    button { padding: 15px; font-size: 18px; margin: 10px 0; width: 100%; }
+    #result { font-size: 24px; margin-top: 20px; font-weight: bold; }
+</style>
+</head>
 <body>
-     <header class="header">
 
-<img src="idn_logo.png" alt="IDNvent" class="logo">
- 
- <nav class= "menu">
-        <a href="#glavnaja">ГЛАВНАЯ </a>
-         <a href="#uslugi">УСЛУГИ</a>
-          <a href="#agregat">ОБОРУДОВАНИЕ</a>
-           <a href="#info">КОНТАКТ</a>
-            <a href="#proektirovanie">ПРОЕКТИРОВАНИЕ</a>
-             <a href="#akzija">ЦЕНЫ</a>
-             <a href="#gallery">ПРОДЕЛАННЫЕ РАБОТЫ</a>  
-           </nav>
-    </header>
-    <main>
-        <article>
-             <div class="glavnaja">
-            
-        </div>
-        <video src="ven1.mp4" autoplay muted preload="auto" loop></video>
-      </article>
+<h2>Сравнение двух batch-кодов</h2>
 
-      <article>
-    <div class="wrapper">
-      <div class="razryv1"> </div>
-    <img src="1.png" alt="image"/></div>
-      <div class="text" id="uslugi">
-          <h2> Услуги</h2>
-       <div class="razryv"> </div>
+<button onclick="scanTube()">📸 Сканировать код с тюбика</button>
+<p>Код с тюбика: <span id="tube">—</span></p>
 
-      <ul>
-        <li>ПРОЕКТИРОВАНИЕ</li>
-        <li>ПОДБОР ОБОРУДОВАНИЯ</li>
-        <li>КОНСУЛЬТАЦИЯ</li>
-        <li>ОБСЛУЖИВАНИЕ</li>
-        <li>УСТАНОВКА</li>
-      </ul>
-    </div>
-    </div>
-  </article>
+<button onclick="scanPaper()">📸 Сканировать код с бумаги</button>
+<p>Код с бумаги: <span id="paper">—</span></p>
 
-  <article>
-      <div class="agregat">
-        <img src="Vallox.png">
-        <div class="produkzija" id="agregat">
-          <h2>Продукция</h2> 
-          <div class="razryv"> </div>
-        <p><a href="2.html" target="_self"> Vallox 096 MV<br> </a></p>
-        <p><a href="3.html" target="_self">Vallox 110 MV<br></a></p> 
-        <p>  <a href="4.html" target="_self">Vallox 145 MV <br></a></p>
-        <p> <a href="5.html" target="_self"> Vallox 245 MV <br> </a></p>
-        <div class="razryv"> </div>
-        <div class="buttom">
-          <a href="https://www.facebook.com/idnvent" class="button">Запросить предложение</a>
-        </div>
-        </div>
-        </div>
-    </article>
+<h3>Результат: <span id="result">—</span></h3>
 
-    <article>
+<script>
+async function takePhoto() {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+    const track = stream.getVideoTracks()[0];
+    const imageCapture = new ImageCapture(track);
+    const bitmap = await imageCapture.grabFrame();
+    track.stop();
+    return bitmap;
+}
 
-    <div class="proektirovanie" id="proektirovanie">    
-        <h2>Зачем нужно проектирование вентиляции</h2> 
-        <div class="razryv"> </div>      
-<p>Грамотное проектирование системы вентиляции — Поддержание качества воздуха внутри помещений имеет огромное значение для здоровья людей, работающих или проживающих внутри здания.
-Воздухообмен в квартирах и домах должен обеспечивать:</p>
-<ul>
-<li>приток свежего воздуха для дыхания;</li>
-<li>удаление отработанных газов (СО2) и испарений;</li>
-<li>удаление запахов;</li>
-<li>Предотвращение появления плесени и грибка;</li>
-<li>Экономия энергии;</li>
-<li>Предотвращение образования конденсата и повреждений.</li>
-</ul>
-<p>Проектирование вентиляции требует расчета интенсивности перетока воздушных масс. Нужно вычислить расход воздуха для каждого помещения и обеспечить норматив по кратности воздухооборота в час. О том, как это сделать корректно, расскажем далее.</p>
-<div class="razryv"> </div>
-</article>
-<article>
-<div class="proekt0">  
-<img class="proekt1" src="proekt.png" >
- <img class="proekt2" src="proekt2.png"  > 
- </div>
-</div>
-</article>
+async function recognize(bitmap) {
+    const canvas = document.createElement("canvas");
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(bitmap, 0, 0);
 
- 
-<article>
-  <div class="razryv"> </div>
-<div class="akzija" id="akzija">
-<figure>
-<img src="vallox096.png" alt="vallox096" >
-<figcaption>vallox096</figcaption>
-</figure>
-<figure>
-  <img  src="vallox110.png" alt="vallox110" ><figcaption>vallox110</figcaption> 
-</figure>
-<figure>
-  <img  src="vallox145.png" alt="vallox145" > <figcaption>vallox145</figcaption>
-</figure>
-<figure>
-  <img  src="vallox245.png" alt="vallox245" > <figcaption>vallox245</figcaption>
-</figure>
-  </div>
+    const { data: { text } } = await Tesseract.recognize(canvas, "eng", {
+        tessedit_char_whitelist: "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+    });
 
+    return text.replace(/\s+/g, "").trim();
+}
 
-</article>
+async function scanTube() {
+    document.getElementById("tube").textContent = "распознаю...";
+    const bitmap = await takePhoto();
+    const code = await recognize(bitmap);
+    document.getElementById("tube").textContent = code || "не найдено";
+    compare();
+}
 
-<article>
-  <div class="gallery" id="gallery">
-    <div class="img">
-      <img src="a4.png" alt="vallox096">
-    </div>
-  
-    <div class="img">
-      <img src="a5.png">
-    </div>
-    <div class="img">
-      <img src="a6.png">
-    </div>
-    <div class="img">
-      <img src="a7.png">
-    </div>
-    <div class="img">
-      <img src="a8.png">
-    </div>
-    <div class="img">
-      <img src="a9.png">
-    </div>
-    <div class="img">
-      <img src="a10.png">
-    </div>
-    <div class="img">
-      <img src="a11.png">
-    </div>
-  </div>
+async function scanPaper() {
+    document.getElementById("paper").textContent = "распознаю...";
+    const bitmap = await takePhoto();
+    const code = await recognize(bitmap);
+    document.getElementById("paper").textContent = code || "не найдено";
+    compare();
+}
 
-</article>
+function compare() {
+    const tube = document.getElementById("tube").textContent;
+    const paper = document.getElementById("paper").textContent;
 
-<article>
-  <div class="razryv"> </div>
-  <div class="dannie" id="info">
-    <img class="ris" src="ris.png">
- <h3>Контактные данные<br> 
-      Если у вас возникли вопросы, свяжитесь с нами<br>   </h3>
-    <h2>  +372 55505950 <br>
-      idnvent@gmail.com<br>
-      <a href="https://www.facebook.com/idnvent" class=" kontakt">https://www.facebook.com/idnvent</a>
-    </h2>
-      
- </div>
- 
+    if (tube === "—" || paper === "—" || tube === "распознаю..." || paper === "распознаю...") return;
 
-</article>
-<div class="razryv1"> </div>
-</main>
+    if (tube === paper && tube !== "не найдено") {
+        result.textContent = "✔ ОК — коды совпадают";
+        result.style.color = "green";
+    } else {
+        result.textContent = "✘ НЕ ОК — коды разные";
+        result.style.color = "red";
+    }
+}
+</script>
 
-<footer> <p> Copyright © 2024. All rights reserved IDNvent OÜ</p>
-</footer>
 </body>
 </html>
