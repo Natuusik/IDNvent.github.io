@@ -234,6 +234,7 @@ function onCalendarChange() {
 }
 
 function buildCalendar() {
+function buildCalendar() {
     const year = parseInt(yearSelect.value);
     const month = parseInt(monthSelect.value);
     const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -255,22 +256,29 @@ function buildCalendar() {
 
         const dayData = monthData[i] || { start: "", end: "", lunch: "" };
 
-        daysContainer.innerHTML += `
-            <div class="${rowClass}">
-                <span class="day-num">${i}</span>
-                ${holidayName ? 
-                    `<span class="holiday-title">${holidayName}</span>` : 
-                    `<input type="time" id="start${i}" value="${dayData.start}" oninput="saveData()">
-                     <input type="time" id="end${i}" value="${dayData.end}" oninput="saveData()">
-                     <input type="number" id="lunch${i}" placeholder="Обед (мин)" min="0" value="${dayData.lunch}" oninput="saveData()">`
-                }
-                <span id="res${i}" class="res">0:00</span>
-            </div>`;
+        // создаём строку через DOM, а не innerHTML
+        const row = document.createElement("div");
+        row.className = rowClass;
+
+        row.innerHTML = `
+            <span class="day-num">${i}</span>
+            ${
+                holidayName
+                ? `<span class="holiday-title">${holidayName}</span>`
+                : `
+                    <input type="time" id="start${i}" value="${dayData.start}" oninput="saveData()">
+                    <input type="time" id="end${i}" value="${dayData.end}" oninput="saveData()">
+                    <input type="number" id="lunch${i}" placeholder="Обед (мин)" min="0" value="${dayData.lunch}" oninput="saveData()">
+                `
+            }
+            <span id="res${i}" class="res">0:00</span>
+        `;
+
+        daysContainer.appendChild(row);
     }
 
     calculateTotal(false);
 }
-
 function saveData() {
     const year = yearSelect.value; const month = monthSelect.value;
     const allData = JSON.parse(localStorage.getItem("workHours") || "{}");
