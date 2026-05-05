@@ -240,33 +240,18 @@ function buildCalendar() {
     const saved = localStorage.getItem("workHours");
     const monthData = saved ? (JSON.parse(saved)[`${year}-${month}`] || {}) : {};
 
-    daysContainer.innerHTML = "";
-    for (let i = 1; i <= daysInMonth; i++) {
-        const date = new Date(year, month, i);
-        const dayOfWeek = date.getDay();
-        const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
-        const holidayName = estonianHolidays[`${month}-${i}`];
-        
-        let rowClass = "day-row";
-        if (holidayName) rowClass += " holiday"; else if (isWeekend) rowClass += " weekend";
-
-        const dayData = monthData[i] || { start: "", end: "", lunch: "" };
-
+    
         daysContainer.innerHTML += `
-            <div class="${rowClass}">
-                <span class="day-num">${i}</span>
-                ${holidayName ? 
-                    `<span class="holiday-title">${holidayName}</span>` : 
-                    `<input type="time" id="start${i}" value="${dayData.start}" oninput="saveData()">
-                     <input type="time" id="end${i}" value="${dayData.end}" oninput="saveData()">
-                     <input type="number" id="lunch${i}" placeholder="Обед (мин)" min="0" value="${dayData.lunch}" oninput="saveData()">
-                     }
-                     
-    calculateTotal(false);
-}
-
-function formatHM(minutes) { return `${Math.floor(minutes / 60)}:${(minutes % 60).toString().padStart(2, "0")}`; }
-
+    <div class="${rowClass}">
+        <span class="day-num">${i}</span>
+        ${holidayName ? 
+            `<span class="holiday-title">${holidayName}</span>` : 
+            `<input type="time" id="start${i}" value="${dayData.start}" oninput="saveData()">
+             <input type="time" id="end${i}" value="${dayData.end}" oninput="saveData()">
+             <input type="number" id="lunch${i}" placeholder="Обед (мин)" min="0" value="${dayData.lunch}" oninput="saveData()">`
+        }
+        <span id="res${i}" class="res">0:00</span>
+    </div>`;
 function saveData() {
     const year = yearSelect.value; const month = monthSelect.value;
     const allData = JSON.parse(localStorage.getItem("workHours") || "{}");
