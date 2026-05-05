@@ -234,76 +234,107 @@ function onCalendarChange() {
 }
 
 function buildCalendar() {
-function buildCalendar() {
-    const year = parseInt(yearSelect.value);
-    const month = parseInt(monthSelect.value);
+    const year = parseInt(yearSelect.value); const month = parseInt(monthSelect.value);
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const estonianHolidays = getEstonianHolidays(year);
     const saved = localStorage.getItem("workHours");
     const monthData = saved ? (JSON.parse(saved)[`${year}-${month}`] || {}) : {};
 
     daysContainer.innerHTML = "";
-
     for (let i = 1; i <= daysInMonth; i++) {
         const date = new Date(year, month, i);
         const dayOfWeek = date.getDay();
         const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
         const holidayName = estonianHolidays[`${month}-${i}`];
-
+        
         let rowClass = "day-row";
-        if (holidayName) rowClass += " holiday";
-        else if (isWeekend) rowClass += " weekend";
+        if (holidayName) rowClass += " holiday"; else if (isWeekend) rowClass += " weekend";
 
         const dayData = monthData[i] || { start: "", end: "", lunch: "" };
 
-        // создаём строку через DOM, а не innerHTML
-        const row = document.createElement("div");
-        row.className = rowClass;
-
-        row.innerHTML = `
-            <span class="day-num">${i}</span>
-            ${
-                holidayName
-                ? `<span class="holiday-title">${holidayName}</span>`
-                : `
-                    <input type="time" id="start${i}" value="${dayData.start}" oninput="saveData()">
-                    <input type="time" id="end${i}" value="${dayData.end}" oninput="saveData()">
-                    <input type="number" id="lunch${i}" placeholder="Обед (мин)" min="0" value="${dayData.lunch}" oninput="saveData()">
-                `
-            }
-            <span id="res${i}" class="res">0:00</span>
-        `;
-
-        daysContainer.appendChild(row);
+        daysContainer.innerHTML += `
+            <div class="${rowClass}">
+                <span class="day-num">${i}</span>
+                ${holidayName ? 
+                    `<span class="holiday-title">${holidayName}</span>` : 
+                    `<input type="time" id="start${i}" value="${dayData.start}" oninput="saveData()">
+                     <input type="time" id="end${i}" value="${dayData.end}" oninput="saveData()">
+                     <input type="number" id="lunch${i}" placeholder="Об." min="0" value="${dayData.lunch}" oninput="saveData()">`
+                }
+                <span id="res${i}" class="res">0:00</span>
+            </div>`;
     }
-
     calculateTotal(false);
 }
+
+function formatHM(minutes) { return `${Math.floor(minutes / 60)}:${(minutes % 60).toString().padStart(2, "0")}`; }
+
 function saveData() {
-    const year = yearSelect.value; const month = monthSelect.value;
+    const year = yearSelect.value;
+    const month = monthSelect.value;
     const allData = JSON.parse(localStorage.getItem("workHours") || "{}");
     const monthData = {};
+
     for (let i = 1; i <= new Date(year, parseInt(month) + 1, 0).getDate(); i++) {
         const startElem = document.getElementById(`start${i}`);
-        if (startElem) monthData[i] = {start: startElem.value, end: document.getElementById(`end${i}`).value, lunch: document.getElementById(`lunch${i}`).value};
+        if (startElem) {
+            monthData[i] = {
+                start: startElem.value,
+                end: document.getElementById(`end${i}`).value,
+                lunch: document.getElementById(`lunch${i}`).value
+            };
+        }
     }
+
     allData[`${year}-${month}`] = monthData;
     localStorage.setItem("workHours", JSON.stringify(allData));
+
+    calculateTotal(false); // ← ДОБАВЛЕНО
 }
 
 function calculateTotal(shouldSave = true) {
     let totalMinutes = 0;
-    for (let i = 1; i <= new Date(yearSelect.value, parseInt(monthSelect.value) + 1, 0).getDate(); i++) {
+    let workDays = 0;
+
+    const year = parseInt(yearSelect.value);
+    const month = parseInt(monthSelect.value);
+    const holidays = getEstonianHolidays(year);
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+    for (let i = 1; i <= daysInMonth; i++) {
+        const date = new Date(year, month, i);
+        const dayOfWeek = date.getDay();
+        const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
+        const isHoliday = holidays[`${month}-${i}`];
+
+        // считаем рабочие дни
+        if (!isWeekend && !isHoliday) workDays++;
+
         const startElem = document.getElementById(`start${i}`);
         if (!startElem) continue;
-        const start = startElem.value; const end = document.getElementById(`end${i}`).value;
-        if (!start || !end) { document.getElementById(`res${i}`).textContent = "0:00"; continue; }
-        const [sh, sm] = start.split(":").map(Number); const [eh, em] = end.split(":").map(Number);
-        const diff = Math.max(0, (eh * 60 + em) - (sh * 60 + sm) - (parseInt(document.getElementById(`lunch${i}`).value) || 0));
+
+        const start = startElem.value;
+        const end = document.getElementById(`end${i}`).value;
+
+        if (!start || !end) {
+            document.getElementById(`res${i}`).textContent = "0:00";
+            continue;
+        }
+
+        const [sh, sm] = start.split(":").map(Number);
+        const [eh, em] = end.split(":").map(Number);
+        const lunch = parseInt(document.getElementById(`lunch${i}`).value) || 0;
+
+        const diff = Math.max(0, (eh * 60 + em) - (sh * 60 + sm) - lunch);
         document.getElementById(`res${i}`).textContent = formatHM(diff);
+
         totalMinutes += diff;
     }
-    document.getElementById("total").textContent = `Итого: ${formatHM(totalMinutes)}`;
+
+    // итог часов
+    document.getElementById("total").textContent =
+        `Итого: ${formatHM(totalMinutes)} (рабочих дней: ${workDays}, нормо‑часы: ${workDays * 8}:00)`;
+
     if (shouldSave) saveData();
 }
 
