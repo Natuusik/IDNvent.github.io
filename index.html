@@ -259,11 +259,9 @@ function buildCalendar() {
                     `<span class="holiday-title">${holidayName}</span>` : 
                     `<input type="time" id="start${i}" value="${dayData.start}" oninput="saveData()">
                      <input type="time" id="end${i}" value="${dayData.end}" oninput="saveData()">
-                     <input type="number" id="lunch${i}" placeholder="Об." min="0" value="${dayData.lunch}" oninput="saveData()">`
-                }
-                <span id="res${i}" class="res">0:00</span>
-            </div>`;
-    }
+                     <input type="number" id="lunch${i}" placeholder="Обед (мин)" min="0" value="${dayData.lunch}" oninput="saveData()">
+                     }
+                     
     calculateTotal(false);
 }
 
